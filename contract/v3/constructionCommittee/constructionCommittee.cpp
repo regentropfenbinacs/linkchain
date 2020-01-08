@@ -21,7 +21,11 @@ struct AddressInfo {
     uint status = FirstMake;				// User status, default "FirstMake"
     tc::BInt deposit = tc::BInt("0");       // Deposit amount, default "0"
     std::string date = "00000000";          // Date of last InterestPayment
-    tc::Address from;                       // Deposit from some address
+};
+
+struct ExAddress {
+    uint status = FirstMake;
+    tc::Address from;
 };
 
 TC_STRUCT(AddressInfo,
@@ -30,12 +34,18 @@ TC_STRUCT(AddressInfo,
     TC_FIELD_NAME(date, "date")
 );
 
+TC_STRUCT(ExAddress,
+    TC_FIELD_NAME(status, "status"),
+    TC_FIELD_NAME(from, "from")
+);
+
 class ConstructionCommittee : public TCBaseContract{                // TCBaseContract
 private:
-    std::string version = "20190930";
+    std::string version = "20200108";
 public:
     tc::StorValue<std::set<tc::Address>> AddressSet{"AddressSet"};
-    tc::StorMap<Key<tc::Address>, AddressInfo>  AddressInfoMap{"AddressInfoMap"};
+    tc::StorMap<Key<tc::Address>, AddressInfo> AddressInfoMap{"AddressInfoMap"};
+    tc::StorMap<Key<tc::Address>, ExAddress> AddImExAddrss{"AddImExAddrss"};
     tc::StorValue<tc::BInt> totalAmountOfBonus{"totalAmountOfBonus"};
     
     void Init();
@@ -47,6 +57,7 @@ public:
     const char* QueryByAddress(const tc::Address& address);
     const char* Query(void);
     const char* BonusAmount(void);
+    void FixOnlyOnce(const tc::Address& address, const tc::Address& fromAddress);
     const std::string GetVersion(void);
 };
 TC_ABI(ConstructionCommittee,(DepositIn)\
@@ -57,6 +68,7 @@ TC_ABI(ConstructionCommittee,(DepositIn)\
                     (BonusAmount)\
                     (QueryByAddress)\
                     (Query)\
+                    (FixOnlyOnce)\
                     (GetVersion))		                // TC_ABI 
 
 // Init: init
@@ -93,8 +105,13 @@ void ConstructionCommittee::DepositIn(const tc::Address& address) {
     
     getAddressInfo.status = ToBeExamine;
     getAddressInfo.deposit = amount;
-    getAddressInfo.from = tc::App::getInstance()->sender();
     AddressInfoMap.set(getAddressInfo, address);
+
+    ExAddress exAddr = AddImExAddrss.get(address);
+    TC_RequireWithMsg(exAddr.status == FirstMake, "ExAddress has been used!");
+    exAddr.status = ToBeExamine;
+    exAddr.from = tc::App::getInstance()->sender();
+    AddImExAddrss.set(exAddr, address);
     
     std::set<tc::Address> addressSet = AddressSet.get();
     addressSet.insert(address);
@@ -137,9 +154,11 @@ void ConstructionCommittee::DepositBack(const tc::Address& address, const tc::BI
 
     getAddressInfo.deposit = tc::BInt("0");
     getAddressInfo.status = LeftCommittee;
-    tc::Address toAddress = getAddressInfo.from;
     AddressInfoMap.set(getAddressInfo, address);
-    TC_Transfer(toAddress.toString(), amount.toString());
+
+    ExAddress fromAddrStruct = AddImExAddrss.get(address);
+    tc::Address fromAddress = fromAddrStruct.from;
+    TC_Transfer(fromAddress.toString(), amount.toString());
     TC_Log2(amount.toString(), "DepositBack", address.toString());
 }
 
@@ -198,6 +217,21 @@ const char* ConstructionCommittee::BonusAmount() {
     TC_Payable(false);
     return totalAmountOfBonus.get().toString();
 }
+
+// FixOnlyOnce: Fix the address
+void ConstructionCommittee::FixOnlyOnce(const tc::Address& address, const tc::Address& fromAddress) {
+    TC_Payable(false);
+    TC_RequireWithMsg(CheckAddrRight(tc::App::getInstance()->sender(), "consCommittee"), "Address does not have permission!");
+
+    ExAddress exAddr = AddImExAddrss.get(address);
+    TC_RequireWithMsg(exAddr.status == FirstMake, "ExAddress has been used!");
+    exAddr.status = ToBeExamine;
+    exAddr.from = fromAddress;
+    AddImExAddrss.set(exAddr, address);
+
+    TC_Log2(address.toString(), "FixExAddress", fromAddress.toString());
+}
+
 
 // 
 const std::string ConstructionCommittee::GetVersion() {
