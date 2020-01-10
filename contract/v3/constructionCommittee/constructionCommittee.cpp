@@ -203,8 +203,9 @@ const char* ConstructionCommittee::Query() {
         AddressInfo getAddressInfo = AddressInfoMap.get(address);
         ExAddress fromAddress = AddImExAddrss.get(address);
         tc::Address from =  fromAddress.from;
+        std::string fromKey = std::string(address.toString()) + "_from";
         TC_JsonPutString(root, address.toString(), tc::json::Marshal(getAddressInfo));
-        TC_JsonPutString(root, address.toString(), from.toString());
+        TC_JsonPutString(root, fromKey.c_str(), from.toString());
     }
     return TC_JsonToString(root);
 }
