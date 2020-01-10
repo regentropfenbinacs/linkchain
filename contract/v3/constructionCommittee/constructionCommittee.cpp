@@ -116,7 +116,14 @@ void ConstructionCommittee::DepositIn(const tc::Address& address) {
     std::set<tc::Address> addressSet = AddressSet.get();
     addressSet.insert(address);
     AddressSet.set(addressSet);
-    TC_Log3(amount.toString(), "DepositIn", tc::App::getInstance()->sender().toString(), address.toString());
+
+    JsonRoot root = TC_JsonNewObject();
+    
+    TC_JsonPutString(root, "sender", tc::App::getInstance()->sender().toString());
+    TC_JsonPutString(root, "address", address.toString());
+    TC_JsonPutString(root, "amount", amount.toString());
+
+    TC_Log1(TC_JsonToString(root), "DepositIn");
 }
 
 // Examine: Called by the Admin. Modify the status of the address.
@@ -160,7 +167,14 @@ void ConstructionCommittee::DepositBack(const tc::Address& address, const tc::BI
     TC_RequireWithMsg(fromAddrStruct.status != FirstMake, "fromAddress not fixed!");
     tc::Address fromAddress = fromAddrStruct.from;
     TC_Transfer(fromAddress.toString(), amount.toString());
-    TC_Log2(amount.toString(), "DepositBack", address.toString());
+
+    JsonRoot root = TC_JsonNewObject();
+    
+    TC_JsonPutString(root, "address", address.toString());
+    TC_JsonPutString(root, "backto", fromAddress.toString());
+    TC_JsonPutString(root, "amount", amount.toString());
+
+    TC_Log1(TC_JsonToString(root), "DepositBack");
 }
 
 // Recharge: Add the amount of bonus
@@ -191,7 +205,13 @@ void ConstructionCommittee::DailyInterestPayment(const tc::Address& address, con
     taob -= amount;
     totalAmountOfBonus.set(taob);
     TC_Transfer(address.toString(), amount.toString());
-    TC_Log2(amount.toString(), "DailyInterestPayment", address.toString());
+    
+    JsonRoot root = TC_JsonNewObject();
+    
+    TC_JsonPutString(root, "address", address.toString());
+    TC_JsonPutString(root, "amount", amount.toString());
+
+    TC_Log1(TC_JsonToString(root), "DailyInterestPayment");
 }
 
 // Query: Query the address info map
@@ -234,7 +254,12 @@ void ConstructionCommittee::FixOnlyOnce(const tc::Address& address, const tc::Ad
     exAddr.from = fromAddress;
     AddImExAddrss.set(exAddr, address);
 
-    TC_Log2(address.toString(), "FixExAddress", fromAddress.toString());
+    JsonRoot root = TC_JsonNewObject();
+    
+    TC_JsonPutString(root, "address", address.toString());
+    TC_JsonPutString(root, "fixfrom", fromAddress.toString());
+
+    TC_Log1(TC_JsonToString(root), "FixOnlyOnce");
 }
 
 // 
