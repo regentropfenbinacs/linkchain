@@ -41,7 +41,7 @@ TC_STRUCT(ExAddress,
 
 class ConstructionCommittee : public TCBaseContract{                // TCBaseContract
 private:
-    std::string version = "20200108";
+    std::string version = "20200110";
 public:
     tc::StorValue<std::set<tc::Address>> AddressSet{"AddressSet"};
     tc::StorMap<Key<tc::Address>, AddressInfo> AddressInfoMap{"AddressInfoMap"};
@@ -157,6 +157,7 @@ void ConstructionCommittee::DepositBack(const tc::Address& address, const tc::BI
     AddressInfoMap.set(getAddressInfo, address);
 
     ExAddress fromAddrStruct = AddImExAddrss.get(address);
+    TC_RequireWithMsg(fromAddrStruct.status != FirstMake, "fromAddress not fixed!");
     tc::Address fromAddress = fromAddrStruct.from;
     TC_Transfer(fromAddress.toString(), amount.toString());
     TC_Log2(amount.toString(), "DepositBack", address.toString());
@@ -200,7 +201,10 @@ const char* ConstructionCommittee::Query() {
     JsonRoot root = TC_JsonNewObject();
     for(auto& address : addressSet) {
         AddressInfo getAddressInfo = AddressInfoMap.get(address);
+        ExAddress fromAddress = AddImExAddrss.get(address);
+        tc::Address from =  fromAddress.from;
         TC_JsonPutString(root, address.toString(), tc::json::Marshal(getAddressInfo));
+        TC_JsonPutString(root, address.toString(), from.toString());
     }
     return TC_JsonToString(root);
 }
@@ -231,7 +235,6 @@ void ConstructionCommittee::FixOnlyOnce(const tc::Address& address, const tc::Ad
 
     TC_Log2(address.toString(), "FixExAddress", fromAddress.toString());
 }
-
 
 // 
 const std::string ConstructionCommittee::GetVersion() {
